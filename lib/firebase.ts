@@ -41,7 +41,7 @@ export function getDb(): Firestore | null {
 }
 
 export const paystackPublicKey =
-  process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_xxx";
+  process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "";
 
 export const WHATSAPP_NUMBER = "2349125310881";
 export const ADMIN_EMAIL = "support.fabuyodevs@gmail.com";
