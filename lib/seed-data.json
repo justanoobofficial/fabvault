@@ -1,0 +1,74 @@
+[
+  {
+    "name": "1990S LEATHER BIKER",
+    "price": 185000,
+    "image": "https://images.unsplash.com/photo-1520975954732-35dd22299614?q=80&w=1200&auto=format&fit=crop",
+    "category": "OUTERWEAR",
+    "sizes": ["M"],
+    "tag": "DEADSTOCK"
+  },
+  {
+    "name": "CAMEL WOOL OVERCOAT",
+    "price": 145000,
+    "image": "https://images.unsplash.com/photo-1539533018447-63fcce2678e3?q=80&w=1200&auto=format&fit=crop",
+    "category": "OUTERWEAR",
+    "sizes": ["S", "M"],
+    "tag": "ARCHIVE"
+  },
+  {
+    "name": "TAILORED CHECK BLAZER",
+    "price": 78000,
+    "image": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=1200&auto=format&fit=crop",
+    "category": "TAILORING",
+    "sizes": ["M", "L"],
+    "tag": ""
+  },
+  {
+    "name": "WASHED DENIM TRUCKER",
+    "price": 52000,
+    "image": "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1200&auto=format&fit=crop",
+    "category": "DENIM",
+    "sizes": ["M"],
+    "tag": "ONE OFF"
+  },
+  {
+    "name": "MERINO KNIT, RUST",
+    "price": 64000,
+    "image": "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?q=80&w=1200&auto=format&fit=crop",
+    "category": "KNITWEAR",
+    "sizes": ["L"],
+    "tag": ""
+  },
+  {
+    "name": "SHELL BOMBER, TAN",
+    "price": 95000,
+    "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=1200&auto=format&fit=crop",
+    "category": "OUTERWEAR",
+    "sizes": ["M", "L"],
+    "tag": "FIELD"
+  },
+  {
+    "name": "PLEATED SILK SKIRT",
+    "price": 58000,
+    "image": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=1200&auto=format&fit=crop",
+    "category": "WOMENS",
+    "sizes": ["S"],
+    "tag": ""
+  },
+  {
+    "name": "HEAVYWEIGHT TEE, WHITE",
+    "price": 24000,
+    "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1200&auto=format&fit=crop",
+    "category": "JERSEYS",
+    "sizes": ["M", "L"],
+    "tag": "BLANK"
+  },
+  {
+    "name": "TRENCH, STONE",
+    "price": 168000,
+    "image": "https://images.unsplash.com/photo-1516762689617-e1cffcef479d?q=80&w=1200&auto=format&fit=crop",
+    "category": "OUTERWEAR",
+    "sizes": ["M"],
+    "tag": "ARCHIVE"
+  }
+]
