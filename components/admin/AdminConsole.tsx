@@ -211,6 +211,7 @@ function InventoryTab() {
     tag: "",
   });
   const [busy, setBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
@@ -289,6 +290,52 @@ function InventoryTab() {
     await deleteDoc(doc(db, "products", id));
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 25 * 1024 * 1024) {
+      setNote("Choose an image under 25 MB.");
+      event.target.value = "";
+      return;
+    }
+    const user = getFirebaseAuth()?.currentUser;
+    if (!user) {
+      setNote("Sign in again before uploading.");
+      return;
+    }
+    setImageBusy(true);
+    setNote(null);
+    try {
+      const idToken = await user.getIdToken();
+      const authResponse = await fetch("/api/imagekit-auth", {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const auth = await authResponse.json();
+      if (!authResponse.ok) throw new Error(auth.error || "Image upload is not configured.");
+      const data = new FormData();
+      data.append("file", file);
+      data.append("fileName", file.name);
+      data.append("publicKey", auth.publicKey);
+      data.append("signature", auth.signature);
+      data.append("expire", String(auth.expire));
+      data.append("token", auth.token);
+      data.append("useUniqueFileName", "true");
+      const uploadResponse = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+        method: "POST",
+        body: data,
+      });
+      const uploaded = await uploadResponse.json();
+      if (!uploadResponse.ok || !uploaded.url) throw new Error(uploaded.message || "Image upload failed.");
+      setForm((current) => ({ ...current, image: uploaded.url }));
+      setNote("Image uploaded. Its URL has been added.");
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setImageBusy(false);
+      event.target.value = "";
+    }
+  };
+
   const previewImage = form.image.trim();
 
   return (
@@ -337,6 +384,14 @@ function InventoryTab() {
                 placeholder="https://..."
                 className="admin-input"
               />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={imageBusy}
+                className="mt-2 block w-full font-sans text-[10px] text-paper/60 file:mr-3 file:border file:border-paper/30 file:bg-transparent file:px-3 file:py-2 file:font-sans file:text-[9px] file:uppercase file:tracking-[0.2em] file:text-paper"
+              />
+              {imageBusy ? <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-paper/40">Uploading image...</span> : null}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sizes">
