@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import Image from "next/image";
 import {
   addDoc,
@@ -21,11 +22,9 @@ import {
   Receipt,
   Trash2,
 } from "lucide-react";
-import { getDb, isFirebaseConfigured, ADMIN_EMAIL } from "@/lib/firebase";
+import { getDb, getFirebaseAuth, isFirebaseConfigured, ADMIN_EMAIL } from "@/lib/firebase";
 import { formatDate, formatNaira } from "@/lib/format";
 import type { Order, Product } from "@/lib/types";
-
-const ADMIN_PASSWORD = "Fabuyo2024";
 
 type Tab = "inventory" | "orders";
 
@@ -33,23 +32,29 @@ type RawOrder = Order & { customer?: string | null };
 
 export function AdminConsole() {
   const [unlocked, setUnlocked] = useState(false);
+  const [email, setEmail] = useState(ADMIN_EMAIL);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("inventory");
 
   useEffect(() => {
-    if (sessionStorage.getItem("fv-admin") === "granted") setUnlocked(true);
+    const auth = getFirebaseAuth();
+    if (!auth) return;
+    return onAuthStateChanged(auth, (user) => {
+      setUnlocked(Boolean(user && user.email === ADMIN_EMAIL && user.emailVerified));
+    });
   }, []);
 
-  const submitPassword = (event: React.FormEvent) => {
+  const submitPassword = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem("fv-admin", "granted");
-      setUnlocked(true);
+    const auth = getFirebaseAuth();
+    if (!auth) { setError("Firebase Authentication is not configured."); return; }
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
       setError(null);
-      return;
+    } catch {
+      setError("Access denied. Check your credentials and verified admin email.");
     }
-    setError("Access denied");
   };
 
   if (!unlocked) {
@@ -71,10 +76,21 @@ export function AdminConsole() {
           </h1>
           <form onSubmit={submitPassword} className="mt-10">
             <label
-              htmlFor="admin-password"
+              htmlFor="admin-email"
               className="font-sans text-[9px] uppercase tracking-[0.28em] text-paper/40"
             >
-              Passphrase
+              Admin email
+            </label>
+            <input
+              id="admin-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="username"
+              className="mt-3 w-full border border-paper/25 bg-transparent px-4 py-4 font-sans text-sm text-paper focus:border-paper focus:outline-none"
+            />
+            <label htmlFor="admin-password" className="mt-5 block font-sans text-[9px] uppercase tracking-[0.28em] text-paper/40">
+              Password
             </label>
             <input
               id="admin-password"
@@ -119,8 +135,9 @@ export function AdminConsole() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              sessionStorage.removeItem("fv-admin");
+            onClick={async () => {
+              const auth = getFirebaseAuth();
+              if (auth) await signOut(auth);
               setUnlocked(false);
               setPassword("");
             }}
