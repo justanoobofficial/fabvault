@@ -39,7 +39,6 @@ NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_xxx
 PAYSTACK_SECRET_KEY=
 FIREBASE_SERVICE_ACCOUNT_JSON=
 NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY=
-NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT=
 IMAGEKIT_PRIVATE_KEY=
 ```
 
@@ -100,8 +99,8 @@ Two options:
 - Orders tab: every order record, filterable by channel, paid volume summary
 - Footer: `Admin: support.fabuyodevs@gmail.com`
 
-The passphrase is compared on the client and stored in `sessionStorage`. That hides
-the console from customers, it does not secure the database. See the note above.
+The console uses Firebase Authentication. Firestore rules enforce the same admin
+allowlist, so hiding the route is not relied on as a security boundary.
 
 ## 5. Checkout
 
