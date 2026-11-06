@@ -1,5 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,6 +17,14 @@ export const isFirebaseConfigured = Boolean(
 
 let cachedApp: FirebaseApp | null = null;
 let cachedDb: Firestore | null = null;
+let cachedAuth: Auth | null = null;
+
+export function getFirebaseAuth(): Auth | null {
+  if (typeof window === "undefined" || !isFirebaseConfigured) return null;
+  if (!cachedApp) cachedApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  if (!cachedAuth) cachedAuth = getAuth(cachedApp);
+  return cachedAuth;
+}
 
 /**
  * Firestore is resolved lazily on the client so that the app can boot and
