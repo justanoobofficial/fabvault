@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
     const payment = result?.data;
     if (!response.ok || !result?.status || payment?.status !== "success" ||
-        payment?.currency !== "NGN" || Number(payment?.amount) !== Math.round(total * 100) ||
+        payment?.currency !== "NGN" || String(payment?.reference || "") !== reference || Number(payment?.amount) !== Math.round(total * 100) ||
         String(payment?.customer?.email || "").toLowerCase() !== email) {
       return NextResponse.json({ error: "Payment could not be verified. Contact support before retrying." }, { status: 402 });
     }
