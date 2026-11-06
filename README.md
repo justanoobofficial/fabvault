@@ -38,8 +38,9 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_xxx
 PAYSTACK_SECRET_KEY=
 FIREBASE_SERVICE_ACCOUNT_JSON=
-NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY=
-IMAGEKIT_PRIVATE_KEY=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 ```
 
 Without Firebase keys the storefront shows its branded empty state. For live card
@@ -95,12 +96,14 @@ Two options:
 
 - Route: `/admin-secure-99` (unlinked, excluded from metadata indexing)
 - Sign-in: Firebase Authentication (verified admin email only)
-- Inventory tab: name, price, image URL, category, sizes, tag, delete
+- Inventory tab: name, price, upload image, category, sizes, tag, delete
 - Orders tab: every order record, filterable by channel, paid volume summary
 - Footer: `Admin: support.fabuyodevs@gmail.com`
 
 The console uses Firebase Authentication. Firestore rules enforce the same admin
-allowlist, so hiding the route is not relied on as a security boundary.
+allowlist, so hiding the route is not relied on as a security boundary. Product images
+are uploaded to Cloudinary through a signed, admin-authenticated upload flow. Only the
+returned secure image URL is saved in Firestore; the Cloudinary API secret stays server-side.
 
 ## 5. Checkout
 
