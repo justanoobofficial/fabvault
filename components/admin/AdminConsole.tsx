@@ -302,41 +302,46 @@ function InventoryTab() {
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 25 * 1024 * 1024) {
-      setNote("Choose an image under 25 MB.");
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+    if (!allowedTypes.includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setNote("Choose a JPG, PNG, WebP or AVIF image under 10 MB.");
       event.target.value = "";
       return;
     }
     const user = getFirebaseAuth()?.currentUser;
     if (!user) {
       setNote("Sign in again before uploading.");
+      event.target.value = "";
       return;
     }
     setImageBusy(true);
     setNote(null);
     try {
       const idToken = await user.getIdToken();
-      const authResponse = await fetch("/api/imagekit-auth", {
+      const authResponse = await fetch("/api/cloudinary-signature", {
+        method: "POST",
         headers: { Authorization: `Bearer ${idToken}` },
       });
       const auth = await authResponse.json();
-      if (!authResponse.ok) throw new Error(auth.error || "Image upload is not configured.");
+      if (!authResponse.ok) throw new Error(auth.error || "Cloudinary is not configured.");
+
       const data = new FormData();
       data.append("file", file);
-      data.append("fileName", file.name);
-      data.append("publicKey", auth.publicKey);
+      data.append("api_key", auth.apiKey);
+      data.append("timestamp", String(auth.timestamp));
+      data.append("folder", auth.folder);
       data.append("signature", auth.signature);
-      data.append("expire", String(auth.expire));
-      data.append("token", auth.token);
-      data.append("useUniqueFileName", "true");
-      const uploadResponse = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
-        method: "POST",
-        body: data,
-      });
+
+      const uploadResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${auth.cloudName}/image/upload`,
+        { method: "POST", body: data }
+      );
       const uploaded = await uploadResponse.json();
-      if (!uploadResponse.ok || !uploaded.url) throw new Error(uploaded.message || "Image upload failed.");
-      setForm((current) => ({ ...current, image: uploaded.url }));
-      setNote("Image uploaded. Its URL has been added.");
+      if (!uploadResponse.ok || typeof uploaded.secure_url !== "string") {
+        throw new Error(uploaded.error?.message || "Cloudinary image upload failed.");
+      }
+      setForm((current) => ({ ...current, image: uploaded.secure_url }));
+      setNote("Image uploaded. Preview ready; its link will save with the product.");
     } catch (error) {
       setNote(error instanceof Error ? error.message : "Image upload failed.");
     } finally {
@@ -386,21 +391,27 @@ function InventoryTab() {
                 />
               </Field>
             </div>
-            <Field label="Image URL">
-              <input
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://..."
-                className="admin-input"
-              />
+            <Field label="Product image">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/avif"
                 onChange={handleImageUpload}
                 disabled={imageBusy}
-                className="mt-2 block w-full font-sans text-[10px] text-paper/60 file:mr-3 file:border file:border-paper/30 file:bg-transparent file:px-3 file:py-2 file:font-sans file:text-[9px] file:uppercase file:tracking-[0.2em] file:text-paper"
+                className="block w-full font-sans text-[10px] text-paper/60 file:mr-3 file:border file:border-paper/30 file:bg-transparent file:px-3 file:py-2 file:font-sans file:text-[9px] file:uppercase file:tracking-[0.2em] file:text-paper"
               />
+              <span className="font-sans text-[9px] uppercase tracking-[0.18em] text-paper/35">
+                JPG, PNG, WebP or AVIF · 10 MB max
+              </span>
               {imageBusy ? <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-paper/40">Uploading image...</span> : null}
+              {form.image ? (
+                <button
+                  type="button"
+                  onClick={() => setForm((current) => ({ ...current, image: "" }))}
+                  className="self-start border border-paper/20 px-3 py-2 font-sans text-[9px] uppercase tracking-[0.2em] text-paper/55 transition-colors hover:border-paper hover:text-paper"
+                >
+                  Remove image
+                </button>
+              ) : null}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sizes">
