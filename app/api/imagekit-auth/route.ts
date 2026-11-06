@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
     const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
-    const token = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+    const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     if (!projectId || !privateKey || !publicKey || !token) {
       return NextResponse.json({ error: "Image uploads are not configured." }, { status: 503 });
     }
