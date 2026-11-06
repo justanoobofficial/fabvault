@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { getAdminDb } from "@/lib/firebase-admin";
+import { createFirestoreDocument, getFirestoreDocument } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
@@ -24,22 +23,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid checkout details." }, { status: 400 });
     }
 
-    const db = getAdminDb();
-    const orderRef = db.collection("orders").doc(reference);
-    const existing = await orderRef.get();
-    if (existing.exists && existing.data()?.status === "paid") {
-      return NextResponse.json({ success: true, reference });
-    }
+    const orderPath = `orders/${reference}`;
+    const existing = await getFirestoreDocument(orderPath);
+    if (existing?.status === "paid") return NextResponse.json({ success: true, reference });
 
     let total = 0;
     const orderItems = [];
     for (const item of items) {
-      const productDoc = await db.collection("products").doc(item.id).get();
-      if (!productDoc.exists) return NextResponse.json({ error: "A product is no longer available." }, { status: 409 });
-      const product = productDoc.data()!;
-      if (product.soldOut) return NextResponse.json({ error: "A product has already been sold." }, { status: 409 });
+      const product = await getFirestoreDocument(`products/${item.id}`);
+      if (!product || product.soldOut) {
+        return NextResponse.json({ error: "A product is no longer available." }, { status: 409 });
+      }
       const price = Number(product.price);
-      if (!Number.isFinite(price) || price <= 0) return NextResponse.json({ error: "Invalid product price." }, { status: 409 });
+      if (!Number.isFinite(price) || price <= 0) {
+        return NextResponse.json({ error: "Invalid product price." }, { status: 409 });
+      }
       total += price * item.quantity;
       orderItems.push({
         id: item.id,
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment could not be verified. Contact support before retrying." }, { status: 402 });
     }
 
-    await orderRef.create({
+    await createFirestoreDocument(orderPath, {
       reference,
       email,
       customer: customer || null,
@@ -72,11 +70,8 @@ export async function POST(request: NextRequest) {
       currency: "NGN",
       channel: "paystack",
       status: "paid",
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: Date.now(),
       paystackTransactionId: String(payment.id || ""),
-    }).catch(async (error) => {
-      const current = await orderRef.get();
-      if (!current.exists || current.data()?.status !== "paid") throw error;
     });
 
     return NextResponse.json({ success: true, reference });
