@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    const token = request.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+    const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
 
     if (!projectId || !cloudName || !apiKey || !apiSecret || !token) {
       return NextResponse.json(
