@@ -49,8 +49,17 @@ export function AdminConsole() {
     event.preventDefault();
     const auth = getFirebaseAuth();
     if (!auth) { setError("Firebase Authentication is not configured."); return; }
+    if (email.trim().toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+      setError("Access denied. Use the authorised admin email.");
+      return;
+    }
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (!credential.user.emailVerified) {
+        await signOut(auth);
+        setError("Verify the admin email before signing in.");
+        return;
+      }
       setError(null);
     } catch {
       setError("Access denied. Check your credentials and verified admin email.");
