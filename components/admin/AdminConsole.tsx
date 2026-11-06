@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import Image from "next/image";
 import {
   addDoc,
@@ -21,11 +22,9 @@ import {
   Receipt,
   Trash2,
 } from "lucide-react";
-import { getDb, isFirebaseConfigured, ADMIN_EMAIL } from "@/lib/firebase";
+import { getDb, getFirebaseAuth, isFirebaseConfigured, ADMIN_EMAIL } from "@/lib/firebase";
 import { formatDate, formatNaira } from "@/lib/format";
 import type { Order, Product } from "@/lib/types";
-
-const ADMIN_PASSWORD = "Fabuyo2024";
 
 type Tab = "inventory" | "orders";
 
@@ -33,23 +32,38 @@ type RawOrder = Order & { customer?: string | null };
 
 export function AdminConsole() {
   const [unlocked, setUnlocked] = useState(false);
+  const [email, setEmail] = useState(ADMIN_EMAIL);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("inventory");
 
   useEffect(() => {
-    if (sessionStorage.getItem("fv-admin") === "granted") setUnlocked(true);
+    const auth = getFirebaseAuth();
+    if (!auth) return;
+    return onAuthStateChanged(auth, (user) => {
+      setUnlocked(Boolean(user && user.email === ADMIN_EMAIL && user.emailVerified));
+    });
   }, []);
 
-  const submitPassword = (event: React.FormEvent) => {
+  const submitPassword = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem("fv-admin", "granted");
-      setUnlocked(true);
-      setError(null);
+    const auth = getFirebaseAuth();
+    if (!auth) { setError("Firebase Authentication is not configured."); return; }
+    if (email.trim().toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+      setError("Access denied. Use the authorised admin email.");
       return;
     }
-    setError("Access denied");
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (!credential.user.emailVerified) {
+        await signOut(auth);
+        setError("Verify the admin email before signing in.");
+        return;
+      }
+      setError(null);
+    } catch {
+      setError("Access denied. Check your credentials and verified admin email.");
+    }
   };
 
   if (!unlocked) {
@@ -71,10 +85,21 @@ export function AdminConsole() {
           </h1>
           <form onSubmit={submitPassword} className="mt-10">
             <label
-              htmlFor="admin-password"
+              htmlFor="admin-email"
               className="font-sans text-[9px] uppercase tracking-[0.28em] text-paper/40"
             >
-              Passphrase
+              Admin email
+            </label>
+            <input
+              id="admin-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="username"
+              className="mt-3 w-full border border-paper/25 bg-transparent px-4 py-4 font-sans text-sm text-paper focus:border-paper focus:outline-none"
+            />
+            <label htmlFor="admin-password" className="mt-5 block font-sans text-[9px] uppercase tracking-[0.28em] text-paper/40">
+              Password
             </label>
             <input
               id="admin-password"
@@ -119,8 +144,9 @@ export function AdminConsole() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              sessionStorage.removeItem("fv-admin");
+            onClick={async () => {
+              const auth = getFirebaseAuth();
+              if (auth) await signOut(auth);
               setUnlocked(false);
               setPassword("");
             }}
@@ -194,6 +220,7 @@ function InventoryTab() {
     tag: "",
   });
   const [busy, setBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
@@ -272,6 +299,57 @@ function InventoryTab() {
     await deleteDoc(doc(db, "products", id));
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+    if (!allowedTypes.includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setNote("Choose a JPG, PNG, WebP or AVIF image under 10 MB.");
+      event.target.value = "";
+      return;
+    }
+    const user = getFirebaseAuth()?.currentUser;
+    if (!user) {
+      setNote("Sign in again before uploading.");
+      event.target.value = "";
+      return;
+    }
+    setImageBusy(true);
+    setNote(null);
+    try {
+      const idToken = await user.getIdToken();
+      const authResponse = await fetch("/api/cloudinary-signature", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const auth = await authResponse.json();
+      if (!authResponse.ok) throw new Error(auth.error || "Cloudinary is not configured.");
+
+      const data = new FormData();
+      data.append("file", file);
+      data.append("api_key", auth.apiKey);
+      data.append("timestamp", String(auth.timestamp));
+      data.append("folder", auth.folder);
+      data.append("signature", auth.signature);
+
+      const uploadResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${auth.cloudName}/image/upload`,
+        { method: "POST", body: data }
+      );
+      const uploaded = await uploadResponse.json();
+      if (!uploadResponse.ok || typeof uploaded.secure_url !== "string") {
+        throw new Error(uploaded.error?.message || "Cloudinary image upload failed.");
+      }
+      setForm((current) => ({ ...current, image: uploaded.secure_url }));
+      setNote("Image uploaded. Preview ready; its link will save with the product.");
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setImageBusy(false);
+      event.target.value = "";
+    }
+  };
+
   const previewImage = form.image.trim();
 
   return (
@@ -313,13 +391,27 @@ function InventoryTab() {
                 />
               </Field>
             </div>
-            <Field label="Image URL">
+            <Field label="Product image">
               <input
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://..."
-                className="admin-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                onChange={handleImageUpload}
+                disabled={imageBusy}
+                className="block w-full font-sans text-[10px] text-paper/60 file:mr-3 file:border file:border-paper/30 file:bg-transparent file:px-3 file:py-2 file:font-sans file:text-[9px] file:uppercase file:tracking-[0.2em] file:text-paper"
               />
+              <span className="font-sans text-[9px] uppercase tracking-[0.18em] text-paper/35">
+                JPG, PNG, WebP or AVIF · 10 MB max
+              </span>
+              {imageBusy ? <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-paper/40">Uploading image...</span> : null}
+              {form.image ? (
+                <button
+                  type="button"
+                  onClick={() => setForm((current) => ({ ...current, image: "" }))}
+                  className="self-start border border-paper/20 px-3 py-2 font-sans text-[9px] uppercase tracking-[0.2em] text-paper/55 transition-colors hover:border-paper hover:text-paper"
+                >
+                  Remove image
+                </button>
+              ) : null}
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sizes">

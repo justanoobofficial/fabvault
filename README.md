@@ -36,11 +36,16 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_xxx
+PAYSTACK_SECRET_KEY=
+FIREBASE_SERVICE_ACCOUNT_JSON=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 ```
 
-Without the Firebase keys the storefront still runs and shows the animated empty
-state. Without a Paystack key the cart button opens Paystack with the placeholder
-test key in the prompt (`pk_test_xxx`), which will be rejected: add the real one.
+Without Firebase keys the storefront shows its branded empty state. For live card
+payments, configure the Paystack public key and the server-only secret key. Never
+place the Paystack secret in a NEXT_PUBLIC variable.
 
 ## 3. Firestore
 
@@ -72,36 +77,41 @@ Two collections, no schema migrations needed.
 | status    | string    | `paid` or `pending`                    |
 | createdAt | timestamp | unix ms                                |
 
-Deploy `firestore.rules` (included). It is a launch configuration: public reads on
-products and open writes so the passphrase console works. Move the console to
-Firebase Auth before you scale, the rule to change is commented in the file.
+Deploy `firestore.rules` (included) in Firebase Console. Product reads remain
+public, but product writes and order reads require a verified Firebase Auth user
+whose email is support.fabuyodevs@gmail.com. Enable Email/Password in Firebase
+Authentication and create/verify that admin account. WhatsApp orders can only be
+created as pending enquiries; paid orders must be recorded by the server after
+Paystack verification.
 
 ### Seeding
 
 Two options:
 
 1. `/admin-secure-99` and add pieces by hand. Fastest for real inventory.
-2. `/admin-secure-99/seed` writes the nine reference pieces from
-   `lib/seed-data.json` in one click. Delete that route once the archive is real.
+2. Seed products manually through the authenticated console. The old public seed
+   route has been removed so unauthenticated visitors cannot write inventory.
 
 ## 4. Admin
 
 - Route: `/admin-secure-99` (unlinked, excluded from metadata indexing)
-- Passphrase: `Fabuyo2024`
-- Inventory tab: name, price, image URL, category, sizes, tag, delete
+- Sign-in: Firebase Authentication (verified admin email only)
+- Inventory tab: name, price, upload image, category, sizes, tag, delete
 - Orders tab: every order record, filterable by channel, paid volume summary
 - Footer: `Admin: support.fabuyodevs@gmail.com`
 
-The passphrase is compared on the client and stored in `sessionStorage`. That hides
-the console from customers, it does not secure the database. See the note above.
+The console uses Firebase Authentication. Firestore rules enforce the same admin
+allowlist, so hiding the route is not relied on as a security boundary. Product images
+are uploaded to Cloudinary through a signed, admin-authenticated upload flow. Only the
+returned secure image URL is saved in Firestore; the Cloudinary API secret stays server-side.
 
 ## 5. Checkout
 
 - **WhatsApp**: builds a formatted breakdown and opens `wa.me/2349125310881`,
   logging the order as `pending`.
-- **Paystack**: `react-paystack` inline checkout on the public key, amount passed in
-  kobo, reference `FV-<timestamp36>`. On success the order is written to `orders`
-  with `status: paid` and the bag is cleared.
+- **Paystack**: inline checkout uses the public key. The server verifies the
+  transaction with Paystack before creating a paid order. Configure the server-only
+  `PAYSTACK_SECRET_KEY` and Firebase service account JSON before enabling it.
 
 ## 6. Routes
 

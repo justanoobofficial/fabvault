@@ -70,8 +70,8 @@ export function CartDrawer() {
         channel === "paystack"
           ? String(response?.reference || reference)
           : `${reference}-WA`,
-      email: email || null,
-      customer: name || null,
+      email: email || "not-provided@whatsapp.local",
+      customer: name || "WhatsApp customer",
       items: toOrderItems(items),
       subtotal,
       currency: "NGN",
@@ -86,7 +86,14 @@ export function CartDrawer() {
   const onSuccess = async (response?: Record<string, unknown>) => {
     setStatus("saving");
     try {
-      await persistOrder("paystack", "paid", response);
+      const verifiedReference = String(response?.reference || reference);
+      const verification = await fetch("/api/paystack/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: verifiedReference, email, customer: name, items: toOrderItems(items) }),
+      });
+      const result = await verification.json();
+      if (!verification.ok || !result.success) throw new Error(result.error || "Payment verification failed.");
       clearCart();
       setStatus("done");
       setFeedback("Payment confirmed. Your piece is reserved.");
@@ -362,11 +369,11 @@ export function CartDrawer() {
                     <button
                       type="button"
                       onClick={handlePaystack}
-                      disabled={status === "saving"}
+                      disabled={status === "saving" || !paystackPublicKey}
                       data-cursor="hover"
                       className="flex w-full items-center justify-between border border-paper bg-paper px-4 py-4 font-sans text-[10px] uppercase tracking-[0.28em] text-ink transition-colors duration-500 hover:bg-transparent hover:text-paper disabled:opacity-50"
                     >
-                      {status === "saving" ? "Saving order" : "Pay with Paystack"}
+                      {status === "saving" ? "Verifying payment" : paystackPublicKey ? "Pay with Paystack" : "Paystack unavailable"}
                       <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.25} />
                     </button>
                   </Magnetic>
@@ -383,7 +390,7 @@ export function CartDrawer() {
                   </Magnetic>
                 </div>
                 <p className="mt-4 text-center font-sans text-[9px] uppercase tracking-[0.22em] text-paper/25">
-                  Secure checkout / Paystack test environment
+                  {paystackPublicKey ? "Secure checkout / Paystack" : "Card checkout is being configured"}
                 </p>
               </footer>
             ) : null}
